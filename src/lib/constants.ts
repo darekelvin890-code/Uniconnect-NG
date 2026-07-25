@@ -32,6 +32,10 @@ export const FILE_TYPES = [
 
 export const DEPARTMENTS = [
   "Computer Science",
+  "Cyber security",
+  "Data Science",
+  "Information Communication Technology",
+  "Software Engineering",
   "Electrical Engineering",
   "Mechanical Engineering",
   "Civil Engineering",
