@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// INSTITUTION
+// ============================================================
+model Institution {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  users            User[]
+  posts            Post[]
+  libraryResources LibraryResource[]
+  quizzes          Quiz[]
+  cgpARecords      CGPARecord[]
+}
+
+// ============================================================
+// USER (NextAuth + custom fields)
+// ============================================================
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?  // Hashed — null for OAuth users
+  matric        String   @unique
+  level         Int      // 100, 200, 300, 400, 500, 600
+  dept          String
+  role          Role     @default(STUDENT)
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  posts        Post[]
+  likes        Like[]
+  comments     Comment[]
+  uploads      LibraryResource[] @relation("Uploader")
+  approved     LibraryResource[] @relation("Approver")
+  quizAttempts QuizAttempt[]
+  cgpARecords  CGPARecord[]
+
+  // NextAuth
+  accounts Account[]
+  sessions Session[]
+}
+
+// NextAuth models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================
+// POST — Institution feed
+// ============================================================
+model Post {
+  id            String   @id @default(cuid())
+  content       String   @db.Text
+  pdfUrl        String?
+  pdfName       String?
+  authorId      String
+  author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  dept          String?
+  level         Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  likes    Like[]
+  comments Comment[]
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// ============================================================
+// LIBRARY — Resources (notes, past questions)
+// ============================================================
+enum ResourceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum FileType {
+  PDF
+  DOCX
+  PPTX
+  JPG
+  PNG
+}
+
+model LibraryResource {
+  id            String         @id @default(cuid())
+  title         String
+  description   String?        @db.Text
+  fileUrl       String
+  fileType      FileType
+  fileSize      Int            // in bytes
+  course        String
+  dept          String
+  level         Int
+  institutionId String
+  institution   Institution    @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  uploaderId    String
+  uploader      User           @relation("Uploader", fields: [uploaderId], references: [id], onDelete: Cascade)
+  status        ResourceStatus @default(PENDING)
+  approvedById  String?
+  approvedBy    User?          @relation("Approver", fields: [approvedById], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+// ============================================================
+// QUIZ — MCQs
+// ============================================================
+model Quiz {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?  @db.Text
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  timeLimit     Int      // in minutes
+  createdById   String
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+
+  questions Question[]
+  attempts  QuizAttempt[]
+}
+
+model Question {
+  id            String @id @default(cuid())
+  quizId        String
+  quiz          Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  text          String @db.Text
+  options       String // JSON array of 4 strings ["A. ...","B. ...","C. ...","D. ..."]
+  correctAnswer Int    // 0-3 index into options array
+  order         Int
+
+  @@index([quizId])
+}
+
+model QuizAttempt {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId    String
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  score     Int
+  total     Int
+  answers   String   @db.JSON  // [{ questionId, selectedOption, isCorrect }]
+  startedAt DateTime @default(now())
+  completedAt DateTime @default(now())
+
+  @@unique([userId, quizId])
+  @@index([quizId, score])
+}
+
+// ============================================================
+// CGPA RECORD
+// ============================================================
+enum CGPAScale {
+  SCALE_4_0
+  SCALE_5_0
+}
+
+model CGPARecord {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  semester      String    // e.g. "2024/2025 - First Semester"
+  level         Int
+  scale         CGPAScale
+  courses       String    @db.JSON // Array of { code, name, units, score, grade, gradePoint }
+  gpa           Float
+  cgpa          Float
+  totalUnits    Int
+  createdAt     DateTime  @default(now())
+}
