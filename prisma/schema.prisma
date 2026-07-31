@@ -240,7 +240,7 @@ model CGPARecord {
   semester      String    // e.g. "2024/2025 - First Semester"
   level         Int
   scale         CGPAScale
-  courses       String    Json // Array of { code, name, units, score, grade, gradePoint }
+  courses       Json // Array of { code, name, units, score, grade, gradePoint }
   gpa           Float
   cgpa          Float
   totalUnits    Int
