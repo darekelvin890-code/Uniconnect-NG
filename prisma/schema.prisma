@@ -214,7 +214,7 @@ model QuizAttempt {
   quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
   score     Int
   total     Int
-  answers   String   @db.JSON  // [{ questionId, selectedOption, isCorrect }]
+  answers   Json // [{ questionId, selectedOption, isCorrect }]
   startedAt DateTime @default(now())
   completedAt DateTime @default(now())
 
@@ -239,7 +239,7 @@ model CGPARecord {
   semester      String    // e.g. "2024/2025 - First Semester"
   level         Int
   scale         CGPAScale
-  courses       String    @db.JSON // Array of { code, name, units, score, grade, gradePoint }
+  courses       String    Json // Array of { code, name, units, score, grade, gradePoint }
   gpa           Float
   cgpa          Float
   totalUnits    Int
