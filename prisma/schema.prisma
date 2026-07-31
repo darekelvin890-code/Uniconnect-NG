@@ -54,6 +54,7 @@ model User {
   approved     LibraryResource[] @relation("Approver")
   quizAttempts QuizAttempt[]
   cgpARecords  CGPARecord[]
+  createdQuizzes Quiz[] @relation("QuizCreator")
 
   // NextAuth
   accounts Account[]
@@ -187,7 +188,7 @@ model Quiz {
   institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
   timeLimit     Int      // in minutes
   createdById   String
-  createdBy     User     @relation(fields: [createdById], references: [id])
+  createdBy     User     @relation("QuizCreator", fields: [createdById], references: [id])
   createdAt     DateTime @default(now())
 
   questions Question[]
